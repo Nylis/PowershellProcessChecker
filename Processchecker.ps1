@@ -20,7 +20,7 @@ function serverName
         }
         $ping_status = (Test-Connection $SERVER_ADDRESS -Count 1).StatusCode
         $ping_status_linux = (Test-Connection $SERVER_ADDRESS -Count 1).Status
-        if ($ping_status -ne 0 -or $ping_status_linux -eq "Success") {
+        if ($ping_status -ne 0 -or $ping_status_linux -ne "Success") {
             Write-Host "Ping to system failed. Check your network connection and try again."
             endScript
         }
