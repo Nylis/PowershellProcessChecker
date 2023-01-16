@@ -1,4 +1,10 @@
-# Please check if you are using a recent powershell version before performing this script
+# Please check if you are using a recent powershell version before performing this script. pings tests might fail otherwise.
+# 
+
+# Initial setup for windows users (if using remote access):
+# Install-Module WinRM
+# Start-Service WinRM
+# Set-Item WSMan:\localhost\Client\TrustedHosts -Value *
 
 $PINGATTEMPTS = 1
 $NULL_STRING = ""
@@ -17,7 +23,7 @@ function endScript
 function serverName
 {
     Write-Host "Insert the following data."
-    $SERVER_ADDRESS = Read-Host "Servername"
+    $SERVER_ADDRESS = Read-Host "Server address (ip or domain name)"
 
     if ($NULL_STRING -eq $SERVER_ADDRESS) {
         $SERVER_ADDRESS = "win2022serv.nijland.lan"
@@ -37,6 +43,29 @@ function serverName
     $counter = 0
 
     return $SERVER_ADDRESS
+}
+
+function remoteLogin {
+    $USERNAME = Read-Host "Username [Domain\]<Username>"
+    if ($NULL_STRING -eq $USERNAME) {
+        $USERNAME = "Administrator"
+        Write-Host "User did not insert username, defaulting to $USERNAME..."
+    }
+    
+    try {
+        Write-Host "Prompting login..."
+        $S = New-PSSession -ComputerName $SERVER_ADDRESS -Credential $USERNAME
+        if ($S -eq $Error) {
+            Write-Host
+        }
+    }
+
+    catch {
+        Write-Host "Login failed."
+        endScript
+    }
+
+    return $S
 }
 
 function duration {
@@ -87,8 +116,16 @@ function mainLoop {
             Start-Sleep 1
         }
         $counter = 0
-
-        Get-Process | Format-Table -HideTableHeaders Id | Out-File $CURRENT_PROCESSES_FILE
+        
+        if ($remoteCheck -eq $true) {
+            $remoteProcesses = Invoke-Command -Session $S {
+                Get-Process | Format-Table -HideTableHeaders Id
+            }
+            $remoteProcesses | Out-File $CURRENT_PROCESSES_FILE
+        }
+        else {
+            Get-Process | Format-Table -HideTableHeaders Id | Out-File $CURRENT_PROCESSES_FILE
+        }
         $current_processes = Get-Content $CURRENT_PROCESSES_FILE
         foreach ($working_pid in $current_processes) {
             $working_pid = $working_pid.replace(' ', '')
@@ -135,11 +172,23 @@ function mainLoop {
     }
 }
 
-$SERVER_ADDRESS = serverName
 $DURATION_SECONDS = duration
+
+$answer = Read-Host "Perform a remote (1) or local (2) check?"
+if ($answer -eq "1") {
+    $remoteCheck = $true
+    $SERVER_ADDRESS = serverName
+    $S = remoteLogin
+}
+else {
+    $remoteCheck = $false
+    $SERVER_ADDRESS = hostname
+}
+
 $instant_whitelist = instantWhitelist
 
 insertUserInput
 mainLoop
 
+Remove-PSSession -Session $S
 Write-Host "done."
