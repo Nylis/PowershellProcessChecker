@@ -19,7 +19,8 @@ function serverName
             $SERVER_ADDRESS = "win2022serv.nijland.lan"
         }
         $ping_status = (Test-Connection $SERVER_ADDRESS -Count 1).StatusCode
-        if ($ping_status -ne 0) {
+        $ping_status_linux = (Test-Connection $SERVER_ADDRESS -Count 1).Status
+        if ($ping_status -ne 0 -or $ping_status_linux -eq "Success") {
             Write-Host "Ping to system failed. Check your network connection and try again."
             endScript
         }
